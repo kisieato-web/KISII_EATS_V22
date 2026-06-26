@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { -webkit-tap-highlight-color: transparent; }
+body { @apply bg-warm-100 text-gray-900 font-sans; overscroll-behavior: none; }

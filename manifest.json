@@ -1,0 +1,13 @@
+{
+  "name": "Kisii Eats",
+  "short_name": "Kisii Eats",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFAF5",
+  "theme_color": "#F15A24",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
