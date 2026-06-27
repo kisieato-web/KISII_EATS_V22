@@ -46,8 +46,21 @@ export function useAuth() {
   }
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error || !data.user) return { error, role: null }
+
+    // Read role from metadata first (instant)
+    const metaRole = data.user.user_metadata?.role as string | undefined
+    if (metaRole) return { error: null, role: metaRole }
+
+    // Fallback: query users table with retry
+    for (let i = 0; i < 3; i++) {
+      const { data: p } = await supabase.from('users').select('role').eq('id', data.user.id).maybeSingle()
+      if (p?.role) return { error: null, role: p.role as string }
+      await new Promise(r => setTimeout(r, 600))
+    }
+
+    return { error: null, role: 'customer' }
   }
 
   const getRolePath = (role: string): string => {
