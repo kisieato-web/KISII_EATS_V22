@@ -18,30 +18,35 @@ interface Restaurant {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    if (!user) { navigate('/login'); return; }
+    if (authLoading) return;
+    if (!user) {
+      navigate('/login');
+      return;
+    }
 
-    supabase.from('restaurants')
+    supabase
+      .from('restaurants')
       .select('id, name, description, logo_url, average_rating, is_open')
       .eq('status', 'active')
       .order('average_rating', { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) setRestaurants(data as Restaurant[]);
-        setLoading(false);
+        setDataLoading(false);
       });
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
+
+  if (authLoading || dataLoading) return <LoadingSpinner />;
 
   const filtered = restaurants.filter(r =>
     r.name.toLowerCase().includes(search.toLowerCase())
   );
-
-  if (loading) return <LoadingSpinner />;
 
   return (
     <div className="min-h-screen bg-warm-100">
@@ -65,8 +70,10 @@ export default function Dashboard() {
             <RestaurantCard key={r.id} {...r} />
           ))}
         </div>
-        {filtered.length === 0 && (
-          <p className="text-center text-gray-500 py-12">No restaurants found</p>
+        {filtered.length === 0 && !dataLoading && (
+          <p className="text-center text-gray-500 py-12">
+            No restaurants found
+          </p>
         )}
       </div>
       <BottomNav />

@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabaseClient';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import OrderStatusBadge from '../../components/OrderStatusBadge';
-import { ClipboardList, Menu as MenuIcon, DollarSign, Settings, ToggleLeft, ToggleRight, Bell, Package } from 'lucide-react';
+import { ClipboardList, Menu as MenuIcon, DollarSign, Settings, ToggleLeft, ToggleRight, Bell, Package, Tag } from 'lucide-react';
 
 export default function RestaurantDashboard() {
   const { user } = useAuth();
@@ -25,9 +25,20 @@ export default function RestaurantDashboard() {
     });
   }, [user]);
 
+  useEffect(() => {
+    if (!restaurant?.id) return;
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    const channel = supabase.channel('new-orders-alert')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurant.id}` }, () => {
+        audio.play().catch(() => {});
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [restaurant?.id]);
+
   const loadOrders = async (restaurantId: string) => {
     const today = new Date().toISOString().split('T')[0];
-    const { data } = await supabase.from('orders').select('*').eq('restaurant_id', restaurantId).order('created_at', { ascending: false }).limit(50);
+    const { data } = await supabase.from('orders').select('*, customer:users!orders_customer_id_fkey(full_name, phone)').eq('restaurant_id', restaurantId).order('created_at', { ascending: false }).limit(50);
     if (data) {
       setOrders(data);
       const todayOrders = data.filter(o => o.created_at.startsWith(today));
@@ -57,6 +68,16 @@ export default function RestaurantDashboard() {
   };
 
   if (loading) return <LoadingSpinner />;
+
+  if (restaurant?.status === 'pending') {
+    return (<div className="min-h-screen bg-warm-100 flex items-center justify-center px-4"><div className="text-center max-w-sm"><div className="w-20 h-20 bg-yellow-100 rounded-2xl flex items-center justify-center mx-auto mb-6"><span className="text-4xl">⏳</span></div><h1 className="font-display font-bold text-2xl text-gray-900 mb-2">Under Review</h1><p className="text-gray-500 mb-4">Your restaurant <strong>{restaurant.name}</strong> is being reviewed. You'll be notified once approved.</p><div className="bg-yellow-50 rounded-xl p-4 text-sm text-yellow-700"><p>📧 Check your email for updates</p><p>📞 Contact: 0743 053 511</p></div><button onClick={() => navigate('/')} className="mt-6 text-primary-500 font-medium">← Back to Home</button></div></div>);
+  }
+  if (restaurant?.status === 'rejected') {
+    return (<div className="min-h-screen bg-warm-100 flex items-center justify-center px-4"><div className="text-center max-w-sm"><div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6"><span className="text-4xl">❌</span></div><h1 className="font-display font-bold text-2xl text-gray-900 mb-2">Application Rejected</h1>{restaurant.rejection_reason && <div className="bg-red-50 rounded-xl p-4 text-sm text-red-700 mb-4"><p className="font-medium">Reason:</p><p>{restaurant.rejection_reason}</p></div>}<p className="text-sm text-gray-500">Contact jannesokumu20@gmail.com</p><button onClick={() => navigate('/')} className="mt-6 text-primary-500 font-medium">← Back to Home</button></div></div>);
+  }
+  if (restaurant?.status === 'suspended') {
+    return (<div className="min-h-screen bg-warm-100 flex items-center justify-center px-4"><div className="text-center max-w-sm"><div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6"><span className="text-4xl">🚫</span></div><h1 className="font-display font-bold text-2xl text-gray-900 mb-2">Account Suspended</h1><p className="text-gray-500">Contact admin for more information.</p><button onClick={() => navigate('/')} className="mt-6 text-primary-500 font-medium">← Back to Home</button></div></div>);
+  }
 
   return (
     <div className="min-h-screen bg-warm-100 pb-20">
@@ -89,12 +110,13 @@ export default function RestaurantDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-5 gap-3 mb-6">
           {[
             { to: '/restaurant/orders', icon: ClipboardList, label: 'Orders', color: 'bg-blue-100 text-blue-600' },
             { to: '/restaurant/menu', icon: MenuIcon, label: 'Menu', color: 'bg-green-100 text-green-600' },
             { to: '/restaurant/earnings', icon: DollarSign, label: 'Earnings', color: 'bg-yellow-100 text-yellow-600' },
             { to: '/restaurant/profile', icon: Settings, label: 'Settings', color: 'bg-gray-100 text-gray-600' },
+            { to: '/restaurant/promotions', icon: Tag, label: 'Promos', color: 'bg-pink-100 text-pink-600' },
           ].map(({ to, icon: Icon, label, color }) => (
             <Link key={to} to={to} className="flex flex-col items-center gap-2">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}><Icon size={22} /></div>
@@ -117,6 +139,7 @@ export default function RestaurantDashboard() {
                 <OrderStatusBadge status={order.status} />
               </div>
               <p className="text-sm text-gray-600 mb-2">Deliver to: {order.delivery_address}</p>
+              {order.customer && <p className="text-sm text-gray-600 mb-2">👤 {order.customer.full_name} • 📞 {order.customer.phone}</p>}
               <p className="font-bold text-primary-500 mb-3">KES {order.total_amount?.toFixed(0)}</p>
               <div className="flex gap-2">
                 {order.status === 'pending' && (

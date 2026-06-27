@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useProfile } from '../hooks/useProfile';
@@ -7,16 +8,21 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { User, Wallet, Star, LogOut, ChevronRight } from 'lucide-react';
 
 export default function Profile() {
-  const { user, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const { profile, loading } = useProfile(user?.id);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) navigate('/login');
+  }, [user, authLoading, navigate]);
 
   const handleLogout = async () => {
     await signOut();
     navigate('/');
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (authLoading || loading) return <LoadingSpinner />;
   if (!profile) return <p className="text-center py-20">Profile not found</p>;
 
   return (
@@ -61,6 +67,15 @@ export default function Profile() {
           </div>
         </div>
 
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+          <p className="text-sm text-gray-500 mb-2">Your Referral Code</p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 bg-gray-100 px-4 py-3 rounded-xl text-lg font-mono font-bold text-primary-500 text-center">{profile.referral_code || 'N/A'}</code>
+            <button onClick={() => { if (profile.referral_code) { navigator.clipboard.writeText(profile.referral_code); alert('Copied!'); } }} className="bg-primary-500 text-white px-4 py-3 rounded-xl text-sm font-medium">Copy</button>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">Share with friends. You both earn 50 loyalty points when they sign up!</p>
+        </div>
+
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
           <button className="w-full flex items-center justify-between px-4 py-3 border-b border-gray-50">
             <span className="text-gray-700">Edit Profile</span><ChevronRight size={18} className="text-gray-400" />
@@ -68,9 +83,12 @@ export default function Profile() {
           <button className="w-full flex items-center justify-between px-4 py-3 border-b border-gray-50">
             <span className="text-gray-700">Payment Methods</span><ChevronRight size={18} className="text-gray-400" />
           </button>
-          <button className="w-full flex items-center justify-between px-4 py-3">
-            <span className="text-gray-700">Referral Code</span>
-            <span className="text-sm text-primary-500 font-medium">{(profile as any).referral_code || 'N/A'}</span>
+          <button 
+            onClick={() => navigate('/profile/edit')}
+            className="w-full flex items-center justify-between px-4 py-3 border-b border-gray-50"
+          >
+            <span className="text-gray-700">My M-Pesa Number</span>
+            <span className="text-sm text-gray-400">{profile.phone || 'Not set'}</span>
           </button>
         </div>
 

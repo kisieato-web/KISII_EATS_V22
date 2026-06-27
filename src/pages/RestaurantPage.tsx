@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import Navbar from '../components/Navbar';
 import MenuItemCard from '../components/MenuItemCard';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Star, Clock, MapPin } from 'lucide-react';
+import { Star, Clock, MapPin, Users } from 'lucide-react';
 
 interface MenuItem {
   id: string;
@@ -23,6 +23,7 @@ interface MenuCategory {
 
 export default function RestaurantPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [restaurant, setRestaurant] = useState<any>(null);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -87,6 +88,18 @@ export default function RestaurantPage() {
               </span>
             )}
           </div>
+          <button onClick={async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data } = await supabase.from('group_orders').insert({
+              restaurant_id: restaurant.id, creator_id: user?.id,
+              invite_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+              delivery_address: '', base_delivery_fee: 50,
+              lock_at: new Date(Date.now() + 15 * 60000).toISOString(),
+            }).select('invite_code').single();
+            if (data) navigate(`/group/${data.invite_code}`);
+          }} className="mt-3 w-full flex items-center justify-center gap-2 bg-secondary-500 text-white py-2 rounded-xl text-sm font-medium">
+            <Users size={16} /> Start Group Order
+          </button>
         </div>
 
         {categories.map((cat) => {

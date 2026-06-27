@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { sendSMS } from '../lib/smartpay';
 import type { User } from '@supabase/supabase-js';
 
 export function useAuth() {
@@ -8,96 +7,142 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isActive = true;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isActive) return;
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isActive) return;
       setUser(session?.user ?? null);
+      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isActive = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const formatPhone = (phone: string): string => {
-    let cleaned = phone.replace(/\D/g, '');
-    if (cleaned.startsWith('254')) return cleaned;
-    if (cleaned.startsWith('0')) return '254' + cleaned.substring(1);
-    if (cleaned.startsWith('7') || cleaned.startsWith('1')) return '254' + cleaned;
-    return cleaned;
+  const getRoleFromDB = async (userId: string): Promise<string> => {
+    const { data } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+    return data?.role || 'customer';
   };
 
-  const generateOTP = (): string => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+  const updateProfile = async (userId: string, name: string, phone: string) => {
+    // Only update safe fields — never touch role, wallet, loyalty
+    const formatted = phone
+      ? phone.startsWith('254')
+        ? phone
+        : `254${phone.replace(/^0+/, '')}`
+      : null;
+
+    await supabase
+      .from('users')
+      .update({
+        full_name: name,
+        ...(formatted ? { phone: formatted } : {}),
+      })
+      .eq('id', userId);
   };
 
-  // SIGNUP: Send OTP for verification
-  const signUpWithOTP = async (phone: string, name: string) => {
-    const formattedPhone = formatPhone(phone);
-    const otp = generateOTP();
-
-    localStorage.setItem(`otp_${formattedPhone}`, JSON.stringify({
-      otp,
-      expires: Date.now() + 5 * 60 * 1000,
-      name,
-    }));
-
-    const smsResult = await sendSMS(formattedPhone, `Welcome to Kisii Eats! Your verification code: ${otp}`);
-
-    if (smsResult.status !== 'success') {
-      localStorage.removeItem(`otp_${formattedPhone}`);
-      return { error: new Error('Failed to send verification code') };
-    }
-
-    return { error: null };
-  };
-
-  // SIGNUP: Verify OTP and create account
-  const verifySignUpOTP = async (phone: string, token: string, password: string) => {
-    const formattedPhone = formatPhone(phone);
-    const stored = localStorage.getItem(`otp_${formattedPhone}`);
-
-    if (!stored) return { error: new Error('Code expired. Please sign up again.') };
-
-    const { otp, expires, name } = JSON.parse(stored);
-    if (Date.now() > expires) {
-      localStorage.removeItem(`otp_${formattedPhone}`);
-      return { error: new Error('Code expired. Please sign up again.') };
-    }
-    if (otp !== token) return { error: new Error('Invalid code.') };
-
-    localStorage.removeItem(`otp_${formattedPhone}`);
-
-    const email = `${formattedPhone}@kisiieats.com`;
-
+  const signUp = async (
+    email: string,
+    password: string,
+    name: string,
+    phone: string
+  ) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name, phone: formattedPhone } },
+      options: { data: { full_name: name, phone, role: 'customer' } },
     });
 
-    if (error) return { error };
+    if (error) {
+      // User already exists — tell them clearly
+      if (error.message.toLowerCase().includes('already registered')) {
+        return {
+          error: new Error('An account with this email already exists. Please sign in.'),
+          user: null,
+          role: null,
+        };
+      }
+      return { error, user: null, role: null };
+    }
 
-    // Supabase trigger handle_new_user() creates the public.users row automatically.
-    return { error: null };
+    const authUser = data.user ?? null;
+
+    if (!authUser) {
+      return {
+        error: new Error('Signup failed. Please try again.'),
+        user: null,
+        role: null,
+      };
+    }
+
+    // Wait for trigger to create public.users row
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Update name and phone safely (trigger already created the row)
+    await updateProfile(authUser.id, name, phone);
+
+    const role = await getRoleFromDB(authUser.id);
+
+    return { error: null, user: authUser, role };
   };
 
-  // LOGIN: Phone + password
-  const signIn = async (phone: string, password: string) => {
-    const formattedPhone = formatPhone(phone);
-    const email = `${formattedPhone}@kisiieats.com`;
+  const signUpAsRider = async (email: string, password: string, name: string, phone: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: name, phone, role: 'rider' } },
+    });
+    return { error };
+  };
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const signUpAsRestaurant = async (email: string, password: string, name: string, phone: string, restaurantName: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: name, phone, role: 'restaurant_admin', restaurant_name: restaurantName } },
+    });
 
-    if (error) return { error: new Error('Invalid phone number or password.') };
+    if (data?.user) {
+      await supabase.from('restaurants').insert({
+        owner_id: data.user.id,
+        name: restaurantName,
+        phone: phone,
+        address: '',
+      });
+    }
 
-    return { error: null };
+    return { error };
+  };
+
+  const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) return { error, user: null, role: null };
+
+    const authUser = data.user ?? null;
+    const role = authUser ? await getRoleFromDB(authUser.id) : 'customer';
+
+    return { error: null, user: authUser, role };
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
-  return { user, loading, signUpWithOTP, verifySignUpOTP, signIn, signOut, formatPhone };
+  return { user, loading, signUp, signUpAsRider, signUpAsRestaurant, signIn, signOut };
 }

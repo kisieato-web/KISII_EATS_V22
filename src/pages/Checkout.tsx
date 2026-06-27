@@ -16,7 +16,7 @@ interface CartItem {
 }
 
 export default function Checkout() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [address, setAddress] = useState('');
@@ -27,6 +27,7 @@ export default function Checkout() {
   const [phone, setPhone] = useState('');
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) { navigate('/login'); return; }
     const c = JSON.parse(localStorage.getItem('cart') || '[]');
     if (c.length === 0) { navigate('/cart'); return; }
@@ -34,7 +35,7 @@ export default function Checkout() {
 
     supabase.from('users').select('phone').eq('id', user.id).single()
       .then(({ data }) => { if (data?.phone) setPhone(data.phone); });
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   const subtotal = cart.reduce((s, i) => s + i.base_price * i.quantity * 1.1, 0);
   const deliveryFee = 50;
@@ -103,6 +104,8 @@ export default function Checkout() {
 
     setTimeout(() => navigate('/orders'), 3000);
   };
+
+  if (authLoading) return <LoadingSpinner />;
 
   return (
     <div className="min-h-screen bg-warm-100">

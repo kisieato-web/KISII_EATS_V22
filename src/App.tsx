@@ -1,7 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
+import RiderSignup from './pages/RiderSignup'
+import RestaurantSignup from './pages/RestaurantSignup'
 import Dashboard from './pages/Dashboard'
 import RestaurantPage from './pages/RestaurantPage'
 import Cart from './pages/Cart'
@@ -25,6 +27,10 @@ import AdminRiders from './pages/admin/Riders'
 import AdminDisbursements from './pages/admin/Disbursements'
 import AdminSettings from './pages/admin/Settings'
 import AdminPromotions from './pages/admin/Promotions'
+import GroupOrder from './pages/GroupOrder'
+import RestaurantPromotions from './pages/restaurant/Promotions'
+import AdminAudit from './pages/admin/Audit'
+import AdminMarketing from './pages/admin/Marketing'
 
 export default function App() {
   return (
@@ -34,12 +40,13 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/restaurant/signup" element={<Signup />} />
-        <Route path="/rider/signup" element={<Signup />} />
+        <Route path="/rider/signup" element={<RiderSignup />} />
+        <Route path="/restaurant/signup" element={<RestaurantSignup />} />
         
         {/* Customer */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/restaurant/:id" element={<RestaurantPage />} />
+        <Route path="/group/:code" element={<GroupOrder />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/orders" element={<Orders />} />
@@ -51,6 +58,7 @@ export default function App() {
         <Route path="/restaurant/menu" element={<RestaurantMenu />} />
         <Route path="/restaurant/earnings" element={<RestaurantEarnings />} />
         <Route path="/restaurant/profile" element={<RestaurantProfile />} />
+        <Route path="/restaurant/promotions" element={<RestaurantPromotions />} />
         
         {/* Rider */}
         <Route path="/rider/dashboard" element={<RiderDashboard />} />
@@ -67,7 +75,12 @@ export default function App() {
         <Route path="/admin/disbursements" element={<AdminDisbursements />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/admin/promotions" element={<AdminPromotions />} />
+        <Route path="/admin/audit" element={<AdminAudit />} />
+        <Route path="/admin/marketing" element={<AdminMarketing />} />
+        
+        {/* Catch all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
-  )
+  );
 }

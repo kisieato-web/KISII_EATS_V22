@@ -1,101 +1,59 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Phone, User, Lock, ArrowRight, CheckCircle, Loader } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import { Mail, Lock, User, Phone, ArrowRight } from 'lucide-react';
 
 export default function Signup() {
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [otp, setOtp] = useState('');
-  const [step, setStep] = useState<'details' | 'otp'>('details');
   const [error, setError] = useState('');
-  const [statusMessage, setStatusMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(300);
-  const [resendCountdown, setResendCountdown] = useState(30);
-  const [resendDisabled, setResendDisabled] = useState(true);
-  const { signUpWithOTP, verifySignUpOTP } = useAuth();
+  const { signUp } = useAuth();
   const navigate = useNavigate();
 
-  const formatTimer = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remaining = seconds % 60;
-    return `${minutes}:${remaining.toString().padStart(2, '0')}`;
-  };
-
-  const handleSendOTP = async () => {
+  const handleSignUp = async () => {
     setError('');
     if (!name.trim()) { setError('Enter your full name'); return; }
-    if (!phone || phone.length < 9) { setError('Enter a valid phone number'); return; }
+    if (!email) { setError('Enter your email'); return; }
     if (!password || password.length < 6) { setError('Password must be at least 6 characters'); return; }
 
     setLoading(true);
-    localStorage.setItem('signup_password', password);
-    const { error: err } = await signUpWithOTP(phone, name.trim());
-    setLoading(false);
 
-    if (err) {
-      setError(err.message);
-      setStatusMessage('');
-    } else {
-      setStep('otp');
-      setTimeLeft(300);
-      setResendCountdown(30);
-      setResendDisabled(true);
-      setStatusMessage('Verification code sent.');
+    try {
+      const { error: err, user, role } = await signUp(email, password, name.trim(), phone);
+
+      if (err) {
+        setError(err.message);
+        return;
+      }
+
+      if (!user) {
+        setError('Signup failed. Try again.');
+        return;
+      }
+
+      const resolvedRole = role || 'customer';
+
+      switch (resolvedRole) {
+        case 'admin':
+          navigate('/admin/dashboard');
+          break;
+        case 'restaurant_admin':
+          navigate('/restaurant/dashboard');
+          break;
+        case 'rider':
+          navigate('/rider/dashboard');
+          break;
+        default:
+          navigate('/dashboard');
+      }
+    } finally {
+      setLoading(false);
     }
   };
-
-  const handleVerifyOTP = async () => {
-    setError('');
-    if (otp.length !== 6) { setError('Enter the 6-digit code'); return; }
-
-    setLoading(true);
-    const savedPassword = localStorage.getItem('signup_password') || 'kisii_eats_2026_secure';
-    const { error: err } = await verifySignUpOTP(phone, otp, savedPassword);
-    setLoading(false);
-
-    if (err) { setError(err.message); }
-    else {
-      localStorage.removeItem('signup_password');
-      navigate('/dashboard');
-    }
-  };
-
-  const handleResendOTP = async () => {
-    setError('');
-    setLoading(true);
-    const { error: err } = await signUpWithOTP(phone, name.trim());
-    setLoading(false);
-
-    if (err) {
-      setError(err.message);
-      setStatusMessage('');
-      return;
-    }
-
-    setResendDisabled(true);
-    setResendCountdown(30);
-    setTimeLeft(300);
-    setOtp('');
-    setStatusMessage('A new code has been sent.');
-  };
-
-  useEffect(() => {
-    if (step !== 'otp') return;
-
-    const timerId = setInterval(() => {
-      setTimeLeft((seconds) => Math.max(seconds - 1, 0));
-      setResendCountdown((seconds) => Math.max(seconds - 1, 0));
-    }, 1000);
-
-    return () => clearInterval(timerId);
-  }, [step]);
-
-  useEffect(() => {
-    if (resendCountdown === 0) setResendDisabled(false);
-  }, [resendCountdown]);
 
   return (
     <div className="min-h-screen bg-warm-100 flex items-center justify-center px-4">
@@ -109,95 +67,35 @@ export default function Signup() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          {step === 'details' ? (
-            <>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-              <div className="relative mb-4">
-                <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="John Mwangi"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-orange-100 outline-none text-lg"
-                />
-              </div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+          <div className="relative mb-4">
+            <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Mwangi" className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-orange-100 outline-none" />
+          </div>
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-              <div className="relative mb-4">
-                <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="0712 345 678"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-orange-100 outline-none text-lg"
-                />
-              </div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+          <div className="relative mb-4">
+            <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-orange-100 outline-none" />
+          </div>
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-              <div className="relative mb-4">
-                <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min 6 characters"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-orange-100 outline-none text-lg"
-                />
-              </div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Phone (optional)</label>
+          <div className="relative mb-4">
+            <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0712 345 678" className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-orange-100 outline-none" />
+          </div>
 
-              {error && <p className="text-red-500 text-sm mb-3 bg-red-50 p-2 rounded-lg">{error}</p>}
+          <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+          <div className="relative mb-4">
+            <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 characters" className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-orange-100 outline-none" onKeyDown={(e) => e.key === 'Enter' && handleSignUp()} />
+          </div>
 
-              <button
-                onClick={handleSendOTP}
-                disabled={loading || !name || phone.length < 9 || password.length < 6}
-                className="w-full bg-primary-500 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? 'Sending...' : 'Send Verification Code'} <ArrowRight size={18} />
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="text-center mb-4">
-                <CheckCircle size={32} className="text-green-500 mx-auto mb-2" />
-                <p className="text-sm text-gray-600">Enter the 6-digit code sent to <strong>{phone}</strong></p>
-              </div>
-              <input
-                type="text"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                maxLength={6}
-                placeholder="000000"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary-500 focus:ring-2 focus:ring-orange-100 outline-none text-center text-2xl tracking-[0.5em] font-mono mb-4"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleVerifyOTP()}
-              />
+          {error && <p className="text-red-500 text-sm mb-3 bg-red-50 p-2 rounded-lg">{error}</p>}
 
-              <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
-                <span>Expires in {formatTimer(timeLeft)}</span>
-                <button
-                  onClick={handleResendOTP}
-                  disabled={resendDisabled || loading}
-                  className="text-primary-500 font-medium disabled:text-gray-300 disabled:cursor-not-allowed"
-                >
-                  {resendDisabled ? `Resend in ${resendCountdown}s` : 'Resend code'}
-                </button>
-              </div>
-
-              {statusMessage && <p className="text-green-600 text-sm mb-3 bg-green-50 p-2 rounded-lg">{statusMessage}</p>}
-              {error && <p className="text-red-500 text-sm mb-3 bg-red-50 p-2 rounded-lg">{error}</p>}
-
-              <button
-                onClick={handleVerifyOTP}
-                disabled={loading || otp.length !== 6}
-                className="w-full bg-primary-500 text-white font-semibold py-3 rounded-xl disabled:opacity-50"
-              >
-                {loading ? 'Verifying...' : 'Create Account'}
-              </button>
-              <button onClick={() => setStep('details')} className="w-full text-center text-sm text-gray-500 mt-3">Change details</button>
-            </>
-          )}
+          <button onClick={handleSignUp} disabled={loading} className="w-full bg-primary-500 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50">
+            {loading ? 'Creating...' : 'Create Account'} <ArrowRight size={18} />
+          </button>
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-6">

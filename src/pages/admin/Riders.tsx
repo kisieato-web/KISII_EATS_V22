@@ -73,7 +73,10 @@ export default function AdminRiders() {
                   <p className="text-xs text-gray-500">Phone: {r.user?.phone} | ID: {r.id_number}</p>
                   <p className="text-xs text-gray-500">Vehicle: {r.vehicle_type} {r.vehicle_plate ? `(${r.vehicle_plate})` : ''}</p>
                   <p className="text-xs text-gray-500">Deliveries: {r.total_deliveries} | Rating: {r.average_rating?.toFixed(1)} | Online: {r.is_online ? 'Yes' : 'No'}</p>
-                  {r.full_body_photo_url && <p className="text-xs text-blue-500 underline mt-1">View Photo</p>}
+                  <div className="flex gap-2 mt-1">
+                    {r.id_document_url && <a href={r.id_document_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 underline">📄 ID Photo</a>}
+                    {r.full_body_photo_url && <a href={r.full_body_photo_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 underline">📸 Body Photo</a>}
+                  </div>
                 </div>
                 <span className={`text-xs px-2 py-1 rounded-full ${r.status === 'approved' ? 'bg-green-100 text-green-700' : r.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{r.status}</span>
               </div>

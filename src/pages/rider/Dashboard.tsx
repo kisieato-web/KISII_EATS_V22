@@ -33,7 +33,7 @@ export default function RiderDashboard() {
     const { data: available } = await supabase.from('orders').select('*, restaurant:restaurants(name, address)').eq('status', 'ready').is('rider_id', null);
     if (available) setAvailableOrders(available);
 
-    const { data: active } = await supabase.from('orders').select('*, restaurant:restaurants(name, address, phone)').eq('rider_id', user!.id).not('status', 'in ("delivered","cancelled")').single();
+    const { data: active } = await supabase.from('orders').select('*, restaurant:restaurants(name, address, phone), customer:users!orders_customer_id_fkey(full_name, phone)').eq('rider_id', user!.id).not('status', 'in ("delivered","cancelled")').single();
     if (active) setActiveDelivery(active);
 
     const today = new Date().toISOString().split('T')[0];
@@ -123,6 +123,17 @@ export default function RiderDashboard() {
                 <p className="text-yellow-200 text-sm">Collect KES {activeDelivery.amount_remaining.toFixed(0)} from customer</p>
               )}
             </div>
+            {activeDelivery.rider_confirmed_pickup && activeDelivery.customer && (
+              <div className="bg-white/20 rounded-xl p-3 mb-4">
+                <p className="text-sm font-medium mb-2">📞 Customer: {activeDelivery.customer?.full_name}</p>
+                {activeDelivery.customer?.phone && (
+                  <div className="flex gap-2">
+                    <a href={`tel:${activeDelivery.customer.phone}`} className="flex-1 flex items-center justify-center gap-1 bg-white text-green-600 py-2 rounded-lg text-xs font-bold">📞 Call</a>
+                    <a href={`https://wa.me/${activeDelivery.customer.phone?.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1 bg-white text-green-700 py-2 rounded-lg text-xs font-bold">💬 WhatsApp</a>
+                  </div>
+                )}
+              </div>
+            )}
             {!activeDelivery.rider_confirmed_pickup ? (
               <button onClick={confirmPickup} className="w-full bg-white text-primary-500 font-semibold py-3 rounded-xl">Confirm Pickup</button>
             ) : (
