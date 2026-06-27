@@ -11,6 +11,7 @@ export default function Login() {
   const { signIn } = useAuth();
 
   const redirectByRole = (role: string) => {
+    console.log('redirectByRole called with:', role);
     if (role === 'admin') {
       window.location.href = '/admin/dashboard';
     } else if (role === 'restaurant_admin') {
@@ -30,13 +31,17 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { error: signInError, role } = await signIn(email, password);
+      const result = await signIn(email, password);
+      console.log('FULL SIGNIN RESULT:', JSON.stringify(result));
+
+      const { error: signInError, role } = result;
 
       if (signInError) {
         setError(signInError.message);
         return;
       }
 
+      console.log('ROLE VALUE:', role);
       redirectByRole(role || 'customer');
     } finally {
       setLoading(false);
