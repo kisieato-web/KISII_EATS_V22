@@ -15,7 +15,9 @@ export function useAuth() {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isActive) return;
       setUser(session?.user ?? null);
       setLoading(false);
@@ -28,16 +30,30 @@ export function useAuth() {
   }, []);
 
   const getRoleFromDB = async (userId: string): Promise<string> => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('users')
       .select('role')
       .eq('id', userId)
       .maybeSingle();
+
+    console.log('========== ROLE LOOKUP ==========');
+    console.log('User ID:', userId);
+    console.log('Data:', data);
+    console.log('Error:', error);
+    console.log('===============================');
+
+    if (error) {
+      console.error('Role lookup failed:', error);
+    }
+
     return data?.role || 'customer';
   };
 
-  const updateProfile = async (userId: string, name: string, phone: string) => {
-    // Only update safe fields — never touch role, wallet, loyalty
+  const updateProfile = async (
+    userId: string,
+    name: string,
+    phone: string
+  ) => {
     const formatted = phone
       ? phone.startsWith('254')
         ? phone
@@ -62,18 +78,26 @@ export function useAuth() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name, phone, role: 'customer' } },
+      options: {
+        data: {
+          full_name: name,
+          phone,
+          role: 'customer',
+        },
+      },
     });
 
     if (error) {
-      // User already exists — tell them clearly
       if (error.message.toLowerCase().includes('already registered')) {
         return {
-          error: new Error('An account with this email already exists. Please sign in.'),
+          error: new Error(
+            'An account with this email already exists. Please sign in.'
+          ),
           user: null,
           role: null,
         };
       }
+
       return { error, user: null, role: null };
     }
 
@@ -81,44 +105,71 @@ export function useAuth() {
 
     if (!authUser) {
       return {
-        error: new Error('Signup failed. Please try again.'),
+        error: new Error('Signup failed.'),
         user: null,
         role: null,
       };
     }
 
-    // Wait for trigger to create public.users row
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Update name and phone safely (trigger already created the row)
     await updateProfile(authUser.id, name, phone);
 
     const role = await getRoleFromDB(authUser.id);
 
-    return { error: null, user: authUser, role };
+    return {
+      error: null,
+      user: authUser,
+      role,
+    };
   };
 
-  const signUpAsRider = async (email: string, password: string, name: string, phone: string) => {
+  const signUpAsRider = async (
+    email: string,
+    password: string,
+    name: string,
+    phone: string
+  ) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name, phone, role: 'rider' } },
+      options: {
+        data: {
+          full_name: name,
+          phone,
+          role: 'rider',
+        },
+      },
     });
+
     return { error };
   };
 
-  const signUpAsRestaurant = async (email: string, password: string, name: string, phone: string, restaurantName: string) => {
+  const signUpAsRestaurant = async (
+    email: string,
+    password: string,
+    name: string,
+    phone: string,
+    restaurantName: string
+  ) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name, phone, role: 'restaurant_admin', restaurant_name: restaurantName } },
+      options: {
+        data: {
+          full_name: name,
+          phone,
+          role: 'restaurant_admin',
+          restaurant_name: restaurantName,
+        },
+      },
     });
 
     if (data?.user) {
       await supabase.from('restaurants').insert({
         owner_id: data.user.id,
         name: restaurantName,
-        phone: phone,
+        phone,
         address: '',
       });
     }
@@ -132,17 +183,39 @@ export function useAuth() {
       password,
     });
 
-    if (error) return { error, user: null, role: null };
+    if (error) {
+      console.error('Sign in error:', error);
+      return { error, user: null, role: null };
+    }
 
     const authUser = data.user ?? null;
-    const role = authUser ? await getRoleFromDB(authUser.id) : 'customer';
 
-    return { error: null, user: authUser, role };
+    console.log('Signed in user:', authUser);
+
+    const role = authUser
+      ? await getRoleFromDB(authUser.id)
+      : 'customer';
+
+    console.log('Final role:', role);
+
+    return {
+      error: null,
+      user: authUser,
+      role,
+    };
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
-  return { user, loading, signUp, signUpAsRider, signUpAsRestaurant, signIn, signOut };
+  return {
+    user,
+    loading,
+    signUp,
+    signUpAsRider,
+    signUpAsRestaurant,
+    signIn,
+    signOut,
+  };
 }
