@@ -31,6 +31,8 @@ import GroupOrder from './pages/GroupOrder'
 import RestaurantPromotions from './pages/restaurant/Promotions'
 import AdminAudit from './pages/admin/Audit'
 import AdminMarketing from './pages/admin/Marketing'
+import ProtectedRoute from './components/ProtectedRoute'
+import RoleRoute from './components/RoleRoute'
 
 export default function App() {
   return (
@@ -42,42 +44,50 @@ export default function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/rider/signup" element={<RiderSignup />} />
         <Route path="/restaurant/signup" element={<RestaurantSignup />} />
-        
-        {/* Customer */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/restaurant/:id" element={<RestaurantPage />} />
-        <Route path="/group/:code" element={<GroupOrder />} />
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/checkout" element={<Checkout />} />
-        <Route path="/orders" element={<Orders />} />
-        <Route path="/profile" element={<Profile />} />
-        
-        {/* Restaurant */}
-        <Route path="/restaurant/dashboard" element={<RestaurantDashboard />} />
-        <Route path="/restaurant/orders" element={<RestaurantOrders />} />
-        <Route path="/restaurant/menu" element={<RestaurantMenu />} />
-        <Route path="/restaurant/earnings" element={<RestaurantEarnings />} />
-        <Route path="/restaurant/profile" element={<RestaurantProfile />} />
-        <Route path="/restaurant/promotions" element={<RestaurantPromotions />} />
-        
-        {/* Rider */}
-        <Route path="/rider/dashboard" element={<RiderDashboard />} />
-        <Route path="/rider/deliveries" element={<RiderDeliveries />} />
-        <Route path="/rider/earnings" element={<RiderEarnings />} />
-        <Route path="/rider/profile" element={<RiderProfile />} />
-        
-        {/* Admin */}
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/orders" element={<AdminOrders />} />
-        <Route path="/admin/users" element={<AdminUsers />} />
-        <Route path="/admin/restaurants" element={<AdminRestaurants />} />
-        <Route path="/admin/riders" element={<AdminRiders />} />
-        <Route path="/admin/disbursements" element={<AdminDisbursements />} />
-        <Route path="/admin/settings" element={<AdminSettings />} />
-        <Route path="/admin/promotions" element={<AdminPromotions />} />
-        <Route path="/admin/audit" element={<AdminAudit />} />
-        <Route path="/admin/marketing" element={<AdminMarketing />} />
-        
+
+        {/* Customer routes — any logged in user */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/restaurant/:id" element={<RestaurantPage />} />
+          <Route path="/group/:code" element={<GroupOrder />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/orders" element={<Orders />} />
+          <Route path="/profile" element={<Profile />} />
+        </Route>
+
+        {/* Restaurant routes — restaurant_admin only */}
+        <Route element={<RoleRoute allowedRoles={['restaurant_admin']} />}>
+          <Route path="/restaurant/dashboard" element={<RestaurantDashboard />} />
+          <Route path="/restaurant/orders" element={<RestaurantOrders />} />
+          <Route path="/restaurant/menu" element={<RestaurantMenu />} />
+          <Route path="/restaurant/earnings" element={<RestaurantEarnings />} />
+          <Route path="/restaurant/profile" element={<RestaurantProfile />} />
+          <Route path="/restaurant/promotions" element={<RestaurantPromotions />} />
+        </Route>
+
+        {/* Rider routes — rider only */}
+        <Route element={<RoleRoute allowedRoles={['rider']} />}>
+          <Route path="/rider/dashboard" element={<RiderDashboard />} />
+          <Route path="/rider/deliveries" element={<RiderDeliveries />} />
+          <Route path="/rider/earnings" element={<RiderEarnings />} />
+          <Route path="/rider/profile" element={<RiderProfile />} />
+        </Route>
+
+        {/* Admin routes — admin only */}
+        <Route element={<RoleRoute allowedRoles={['admin']} />}>
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/orders" element={<AdminOrders />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/restaurants" element={<AdminRestaurants />} />
+          <Route path="/admin/riders" element={<AdminRiders />} />
+          <Route path="/admin/disbursements" element={<AdminDisbursements />} />
+          <Route path="/admin/settings" element={<AdminSettings />} />
+          <Route path="/admin/promotions" element={<AdminPromotions />} />
+          <Route path="/admin/audit" element={<AdminAudit />} />
+          <Route path="/admin/marketing" element={<AdminMarketing />} />
+        </Route>
+
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

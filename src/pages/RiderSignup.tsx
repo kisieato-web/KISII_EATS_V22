@@ -14,6 +14,7 @@ export default function RiderSignup() {
   const [vehiclePlate, setVehiclePlate] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
   const { signUpAsRider, getDashboardPath } = useAuth()
 
   const handleSignUp = async () => {
@@ -22,7 +23,7 @@ export default function RiderSignup() {
     if (!email) { setError('Enter your email'); return }
     if (!phone) { setError('Enter your phone number'); return }
     if (!idNumber.trim()) { setError('Enter your ID number'); return }
-    if (!password || password.length < 6) { setError('Password min 6 characters'); return }
+    if (!password || password.length < 6) { setError('Password must be at least 6 characters'); return }
 
     setLoading(true)
     const { error: err, user } = await signUpAsRider(email, password, name.trim(), phone)
@@ -37,9 +38,24 @@ export default function RiderSignup() {
         status: 'pending'
       })
     }
+
     setLoading(false)
+    setSuccess(true)
+
     const path = await getDashboardPath()
     window.location.href = path
+  }
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-warm-100 flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
+          <div className="text-6xl mb-4">🏍️</div>
+          <h2 className="font-display font-bold text-2xl text-gray-900 mb-2">Application Submitted!</h2>
+          <p className="text-gray-500">Your rider application is under review. We'll notify you once approved.</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -50,45 +66,98 @@ export default function RiderSignup() {
             <Bike size={32} className="text-white" />
           </div>
           <h1 className="font-display font-bold text-2xl text-gray-900">Become a Rider</h1>
-          <p className="text-gray-500 text-sm mt-1">Earn money delivering with Busia Fast Food</p>
+          <p className="text-gray-500 text-sm mt-1">Earn money delivering with Kisii Eats</p>
         </div>
+
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
           <div className="relative mb-4">
             <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Mwangi" className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none" />
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="John Mwangi"
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+            />
           </div>
+
           <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
           <div className="relative mb-4">
             <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none" />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+            />
           </div>
+
           <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
           <div className="relative mb-4">
             <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0712 345 678" className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none" />
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="0712 345 678"
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+            />
           </div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">ID Number *</label>
-          <input type="text" value={idNumber} onChange={(e) => setIdNumber(e.target.value)} placeholder="Your national ID number" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none mb-4" />
+
+          <label className="block text-sm font-medium text-gray-700 mb-2">National ID Number *</label>
+          <input
+            type="text"
+            value={idNumber}
+            onChange={(e) => setIdNumber(e.target.value)}
+            placeholder="Your national ID number"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none mb-4"
+          />
+
           <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Type *</label>
-          <select value={vehicleType} onChange={(e) => setVehicleType(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none mb-4">
+          <select
+            value={vehicleType}
+            onChange={(e) => setVehicleType(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none mb-4"
+          >
             <option value="motorcycle">Motorcycle</option>
             <option value="boda_boda">Boda Boda</option>
             <option value="car">Car</option>
-            <option value="bicycle">Bicycle</option>
           </select>
+
           <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Plate (optional)</label>
-          <input type="text" value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value)} placeholder="e.g. KMC 123A" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none mb-4" />
+          <input
+            type="text"
+            value={vehiclePlate}
+            onChange={(e) => setVehiclePlate(e.target.value)}
+            placeholder="e.g. KMC 123A"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none mb-4"
+          />
+
           <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
           <div className="relative mb-4">
             <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 characters" className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none" />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Min 6 characters"
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+            />
           </div>
+
           {error && <p className="text-red-500 text-sm mb-3 bg-red-50 p-2 rounded-lg">{error}</p>}
-          <button onClick={handleSignUp} disabled={loading} className="w-full bg-blue-500 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50">
+
+          <button
+            onClick={handleSignUp}
+            disabled={loading}
+            className="w-full bg-blue-500 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+          >
             {loading ? 'Submitting...' : 'Apply as Rider'} <ArrowRight size={18} />
           </button>
         </div>
+
         <p className="text-center text-sm text-gray-500 mt-6">
           Already a rider? <Link to="/login" className="text-blue-500 font-medium">Sign In</Link>
         </p>
