@@ -15,7 +15,7 @@ export default function RiderSignup() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
-  const { signUpAsRider, getDashboardPath } = useAuth()
+  const { signUpAsRider } = useAuth()
 
   const handleSignUp = async () => {
     setError('')
@@ -41,9 +41,6 @@ export default function RiderSignup() {
 
     setLoading(false)
     setSuccess(true)
-
-    const path = await getDashboardPath()
-    window.location.href = path
   }
 
   if (success) {

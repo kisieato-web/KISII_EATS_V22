@@ -14,7 +14,7 @@ export default function RestaurantSignup() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
-  const { signUpAsRestaurant, getDashboardPath } = useAuth()
+  const { signUpAsRestaurant } = useAuth()
 
   const handleSignUp = async () => {
     setError('')
@@ -35,8 +35,6 @@ export default function RestaurantSignup() {
     if (err) { setError(err.message); return }
 
     setSuccess(true)
-    const path = await getDashboardPath()
-    window.location.href = path
   }
 
   if (success) {
