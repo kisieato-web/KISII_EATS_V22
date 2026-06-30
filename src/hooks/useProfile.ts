@@ -21,7 +21,9 @@ export function useProfile(userId: string | undefined) {
     setProfile(null);
     setLoading(true);
 
-    if (!userId) { setLoading(false); return; }
+    if (!userId) {
+      return;
+    }
 
     supabase.from('users').select('*').eq('id', userId).maybeSingle()
       .then(({ data, error }) => {

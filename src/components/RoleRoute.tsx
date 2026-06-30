@@ -15,16 +15,20 @@ function getPathRole(pathname: string): string {
 }
 
 export default function RoleRoute({ allowedRoles }: Props) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, role: authRole, loading: authLoading } = useAuth();
   const { profile, loading: profileLoading } = useProfile(user?.id);
-  const location = useLocation();
 
-  if (authLoading || profileLoading) return <LoadingSpinner />;
+  if (authLoading) return <LoadingSpinner />;
 
   // Not logged in → go to login
   if (!user) return <Navigate to="/login" replace />;
 
-  const resolvedRole = profile?.role || user?.user_metadata?.role || user?.app_metadata?.role || getPathRole(location.pathname) || '';
+  const resolvedRole = authRole || profile?.role || user?.user_metadata?.role || user?.app_metadata?.role || '';
+
+  if (!resolvedRole) {
+    if (profileLoading) return <LoadingSpinner />;
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (!allowedRoles.includes(resolvedRole)) {
     if (resolvedRole === 'admin') return <Navigate to="/admin/dashboard" replace />;

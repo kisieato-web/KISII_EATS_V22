@@ -26,17 +26,74 @@ function getFriendlyAuthErrorMessage(error: { message?: string } | null) {
 
 export function useAuth() {
   const [user, setUserState] = useState<User | null>(null)
+  const [role, setRoleState] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const resolveRoleForUser = async (authUser: User | null, fallbackRole?: string | null) => {
+    if (!authUser) {
+      setRoleState(null)
+      return null
+    }
+
+    const metaRole = authUser.user_metadata?.role as string | undefined
+    if (metaRole) {
+      setRoleState(metaRole)
+      return metaRole
+    }
+
+    if (fallbackRole) {
+      setRoleState(fallbackRole)
+      return fallbackRole
+    }
+
+    for (let i = 0; i < 5; i++) {
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', authUser.id)
+        .maybeSingle()
+
+      const dbRole = profile?.role as string | undefined
+      if (dbRole) {
+        setRoleState(dbRole)
+        return dbRole
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 800))
+    }
+
+    setRoleState(null)
+    return null
+  }
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUserState(session?.user ?? null)
+    let isMounted = true
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!isMounted) return
+      const authUser = session?.user ?? null
+      setUserState(authUser)
+      await resolveRoleForUser(authUser)
       setLoading(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
-      setUserState(s?.user ?? null)
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_e, s) => {
+      const authUser = s?.user ?? null
+      setUserState(authUser)
+      if (!authUser) {
+        setRoleState(null)
+        setLoading(false)
+        return
+      }
+
+      await resolveRoleForUser(authUser)
+      setLoading(false)
     })
-    return () => subscription.unsubscribe()
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const signUp = async (email: string, password: string, name: string, phone: string, role: string = 'customer') => {
@@ -58,6 +115,8 @@ export function useAuth() {
 
     const authUser = data?.session?.user ?? data?.user ?? null
     if (authUser && !error) {
+      await resolveRoleForUser(authUser, role)
+
       const profilePayload = {
         id: authUser.id,
         email: authUser.email ?? email,
@@ -125,24 +184,12 @@ export function useAuth() {
 
     setUserState(data.user)
 
-    // PRIMARY: Query users table — this is the most reliable source
-    // Retry up to 5 times to handle trigger delays on new accounts
-    for (let i = 0; i < 5; i++) {
-      const { data: profile } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', data.user.id)
-        .maybeSingle()
-
-      if (profile?.role) {
-        return { error: null, role: profile.role as string }
-      }
-      await new Promise(r => setTimeout(r, 800))
+    const resolvedRole = await resolveRoleForUser(data.user)
+    if (resolvedRole) {
+      return { error: null, role: resolvedRole }
     }
 
-    // FALLBACK: use JWT metadata if users table row still not found
-    const metaRole = data.user.user_metadata?.role as string | undefined
-    return { error: null, role: metaRole || 'customer' }
+    return { error: null, role: 'customer' }
   }
 
   const getDashboardPath = async (): Promise<string> => {
@@ -163,8 +210,9 @@ export function useAuth() {
 
   const signOut = async () => {
     setUserState(null)
+    setRoleState(null)
     return supabase.auth.signOut()
   }
 
-  return { user, loading, signUp, signUpAsRider, signUpAsRestaurant, signIn, signOut, getDashboardPath }
+  return { user, role, loading, signUp, signUpAsRider, signUpAsRestaurant, signIn, signOut, getDashboardPath }
 }
