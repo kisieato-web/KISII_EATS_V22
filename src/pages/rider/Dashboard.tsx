@@ -21,8 +21,21 @@ export default function RiderDashboard() {
   }, [user]);
 
   const loadRiderData = async () => {
-    const { data: rp } = await supabase.from('rider_profiles').select('*').eq('user_id', user!.id).single();
-    if (!rp) { navigate('/rider/profile'); return; }
+    const { data: rp, error } = await supabase.from('rider_profiles').select('*').eq('user_id', user!.id).maybeSingle();
+
+    if (error) {
+      console.warn('Unable to load rider profile:', error);
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    if (!rp) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
     setProfile(rp);
 
     if (rp.status !== 'approved') {

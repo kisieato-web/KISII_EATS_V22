@@ -17,8 +17,19 @@ export default function RestaurantDashboard() {
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
 
-    supabase.from('restaurants').select('*').eq('owner_id', user.id).single().then(({ data }) => {
-      if (!data) { navigate('/restaurant/profile'); return; }
+    supabase.from('restaurants').select('*').eq('owner_id', user.id).maybeSingle().then(({ data, error }) => {
+      if (error) {
+        console.warn('Unable to load restaurant profile:', error);
+        setLoading(false);
+        return;
+      }
+
+      if (!data) {
+        setRestaurant(null);
+        setLoading(false);
+        return;
+      }
+
       setRestaurant(data);
       loadOrders(data.id);
       subscribeOrders(data.id);
