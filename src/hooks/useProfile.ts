@@ -18,15 +18,22 @@ export function useProfile(userId: string | undefined) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setProfile(null);
+    setLoading(true);
+
     if (!userId) { setLoading(false); return; }
 
-    supabase.from('users').select('*').eq('id', userId).single()
+    supabase.from('users').select('*').eq('id', userId).maybeSingle()
       .then(({ data, error }) => {
-        if (!error && data) setProfile(data as Profile);
+        if (!error && data) {
+          setProfile(data as Profile);
+        } else {
+          setProfile(null);
+        }
         setLoading(false);
       });
 
-    const channel = supabase.channel('profile-changes')
+    const channel = supabase.channel(`profile-changes-${userId}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
