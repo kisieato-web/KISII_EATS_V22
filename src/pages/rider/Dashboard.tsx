@@ -33,7 +33,7 @@ export default function RiderDashboard() {
     const { data: available } = await supabase.from('orders').select('*, restaurant:restaurants(name, address)').eq('status', 'ready').is('rider_id', null);
     if (available) setAvailableOrders(available);
 
-    const { data: active } = await supabase.from('orders').select('*, restaurant:restaurants(name, address, phone), customer:users!orders_customer_id_fkey(full_name, phone)').eq('rider_id', user!.id).not('status', 'in ("delivered","cancelled")').single();
+    const { data: active } = await supabase.from('orders').select('*, pickup_pin, restaurant:restaurants(name, address, phone), customer:users!orders_customer_id_fkey(full_name, phone)').eq('rider_id', user!.id).not('status', 'in ("delivered","cancelled")').single();
     if (active) setActiveDelivery(active);
 
     const today = new Date().toISOString().split('T')[0];

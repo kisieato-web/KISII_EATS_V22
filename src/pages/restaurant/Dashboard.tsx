@@ -38,7 +38,7 @@ export default function RestaurantDashboard() {
 
   const loadOrders = async (restaurantId: string) => {
     const today = new Date().toISOString().split('T')[0];
-    const { data } = await supabase.from('orders').select('*, customer:users!orders_customer_id_fkey(full_name, phone)').eq('restaurant_id', restaurantId).order('created_at', { ascending: false }).limit(50);
+    const { data } = await supabase.from('orders').select('*, pickup_pin, customer:users!orders_customer_id_fkey(full_name, phone)').eq('restaurant_id', restaurantId).order('created_at', { ascending: false }).limit(50);
     if (data) {
       setOrders(data);
       const todayOrders = data.filter(o => o.created_at.startsWith(today));
@@ -138,6 +138,11 @@ export default function RestaurantDashboard() {
                 </div>
                 <OrderStatusBadge status={order.status} />
               </div>
+              {order.pickup_pin && (
+                <p className="text-xs font-bold text-primary-500 tracking-widest mt-0.5">
+                  PIN: {order.pickup_pin} — Write on bag
+                </p>
+              )}
               <p className="text-sm text-gray-600 mb-2">Deliver to: {order.delivery_address}</p>
               {order.customer && <p className="text-sm text-gray-600 mb-2">👤 {order.customer.full_name} • 📞 {order.customer.phone}</p>}
               <p className="font-bold text-primary-500 mb-3">KES {order.total_amount?.toFixed(0)}</p>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabaseClient';
+import { sendSMS } from '../../lib/smartpay';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { ArrowLeft, Check, X } from 'lucide-react';
 
@@ -30,11 +31,35 @@ export default function AdminRiders() {
 
   const approve = async (id: string) => {
     await supabase.from('rider_profiles').update({ status: 'approved', approved_at: new Date().toISOString(), approved_by: user!.id }).eq('id', id);
+    // Notify rider by SMS
+    const rider = riders.find(r => r.id === id);
+    if (rider?.user?.phone) {
+      try {
+        await sendSMS(
+          rider.user.phone,
+          `Congratulations! Your Kisii Eats rider application has been approved. You can now log in and start accepting deliveries.`
+        );
+      } catch {
+        // SMS failure should not block approval
+      }
+    }
     loadRiders();
   };
 
   const reject = async (id: string) => {
     await supabase.from('rider_profiles').update({ status: 'rejected', rejection_reason: rejectReason }).eq('id', id);
+    // Notify rider by SMS
+    const rider = riders.find(r => r.id === id);
+    if (rider?.user?.phone) {
+      try {
+        await sendSMS(
+          rider.user.phone,
+          `Your Kisii Eats rider application was not approved${rejectReason ? `: ${rejectReason}` : ''}. Contact us for more info.`
+        );
+      } catch {
+        // SMS failure should not block rejection
+      }
+    }
     setRejectReason('');
     setSelectedId('');
     loadRiders();

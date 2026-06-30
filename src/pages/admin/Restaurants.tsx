@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabaseClient';
+import { sendSMS } from '../../lib/smartpay';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { ArrowLeft, Check, X } from 'lucide-react';
 
@@ -30,11 +31,29 @@ export default function AdminRestaurants() {
 
   const approve = async (id: string) => {
     await supabase.from('restaurants').update({ status: 'active', approved_at: new Date().toISOString() }).eq('id', id);
+    const restaurant = restaurants.find(r => r.id === id);
+    if (restaurant?.owner?.phone) {
+      try {
+        await sendSMS(
+          restaurant.owner.phone,
+          `Your restaurant "${restaurant.name}" has been approved on Kisii Eats! Log in to set up your menu and start receiving orders.`
+        );
+      } catch { /* SMS failure should not block approval */ }
+    }
     loadRestaurants();
   };
 
   const reject = async (id: string) => {
     await supabase.from('restaurants').update({ status: 'rejected', rejection_reason: rejectReason }).eq('id', id);
+    const restaurant = restaurants.find(r => r.id === id);
+    if (restaurant?.owner?.phone) {
+      try {
+        await sendSMS(
+          restaurant.owner.phone,
+          `Your Kisii Eats restaurant application was not approved${rejectReason ? `: ${rejectReason}` : ''}. Contact us for more info.`
+        );
+      } catch { /* SMS failure should not block rejection */ }
+    }
     setRejectReason('');
     setSelectedId('');
     loadRestaurants();

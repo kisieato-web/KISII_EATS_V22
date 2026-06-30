@@ -45,24 +45,6 @@ export function useAuth() {
     return { error, user }
   }
 
-  const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error || !data.user) return { error, role: null }
-
-    // Read role from metadata first (instant)
-    const metaRole = data.user.user_metadata?.role as string | undefined
-    if (metaRole) return { error: null, role: metaRole }
-
-    // Fallback: query users table with retry
-    for (let i = 0; i < 3; i++) {
-      const { data: p } = await supabase.from('users').select('role').eq('id', data.user.id).maybeSingle()
-      if (p?.role) return { error: null, role: p.role as string }
-      await new Promise(r => setTimeout(r, 600))
-    }
-
-    return { error: null, role: 'customer' }
-  }
-
   const getRolePath = (role: string): string => {
     switch (role) {
       case 'admin': return '/admin/dashboard'
@@ -72,22 +54,43 @@ export function useAuth() {
     }
   }
 
+  const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error || !data.user) return { error, role: null }
+
+    // PRIMARY: Query users table — this is the most reliable source
+    // Retry up to 5 times to handle trigger delays on new accounts
+    for (let i = 0; i < 5; i++) {
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', data.user.id)
+        .maybeSingle()
+
+      if (profile?.role) {
+        return { error: null, role: profile.role as string }
+      }
+      await new Promise(r => setTimeout(r, 800))
+    }
+
+    // FALLBACK: use JWT metadata if users table row still not found
+    const metaRole = data.user.user_metadata?.role as string | undefined
+    return { error: null, role: metaRole || 'customer' }
+  }
+
   const getDashboardPath = async (): Promise<string> => {
     const { data: { user: u } } = await supabase.auth.getUser()
     if (!u) return '/login'
 
-    // 1. Try meta_data first — available instantly after signUp/signIn
-    const metaRole = u.user_metadata?.role as string | undefined
-    if (metaRole && metaRole !== 'customer') return getRolePath(metaRole)
-
-    // 2. Retry users table up to 3 times (trigger may not have fired yet)
+    // Query users table first
     for (let i = 0; i < 3; i++) {
       const { data: p } = await supabase.from('users').select('role').eq('id', u.id).maybeSingle()
       if (p?.role) return getRolePath(p.role)
       await new Promise(r => setTimeout(r, 600))
     }
 
-    // 3. Fall back to meta_data role even if customer
+    // Fallback to metadata
+    const metaRole = u.user_metadata?.role as string | undefined
     return getRolePath(metaRole || 'customer')
   }
 

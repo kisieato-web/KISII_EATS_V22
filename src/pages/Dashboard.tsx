@@ -31,6 +31,13 @@ export default function Dashboard() {
       return;
     }
 
+    // Redirect non-customer roles to their correct dashboard
+    supabase.from('users').select('role').eq('id', user.id).single().then(({ data }) => {
+      if (data?.role === 'admin') { navigate('/admin/dashboard'); return; }
+      if (data?.role === 'restaurant_admin') { navigate('/restaurant/dashboard'); return; }
+      if (data?.role === 'rider') { navigate('/rider/dashboard'); return; }
+    });
+
     supabase
       .from('restaurants')
       .select('id, name, description, logo_url, average_rating, is_open')

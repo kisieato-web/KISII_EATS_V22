@@ -20,6 +20,7 @@ interface Order {
   delivery_address: string;
   delivery_distance_km: number;
   customer_confirmed_delivery: boolean;
+  pickup_pin: string;
   created_at: string;
   restaurant?: { name: string; phone: string };
   rider?: { full_name: string; phone: string };
@@ -106,6 +107,13 @@ export default function Orders() {
                     </div>
                     {order.amount_remaining > 0 && (
                       <p className="text-xs text-orange-500 mt-1">⚠️ Pay KES {order.amount_remaining?.toFixed(0)} on delivery</p>
+                    )}
+                    {order.pickup_pin && !['delivered', 'cancelled'].includes(order.status) && (
+                      <div className="mt-3 bg-orange-50 border border-orange-200 rounded-xl p-3 text-center">
+                        <p className="text-xs text-gray-500 mb-1">Your Order PIN</p>
+                        <p className="text-3xl font-bold tracking-widest text-primary-500">{order.pickup_pin}</p>
+                        <p className="text-xs text-gray-400 mt-1">Show this to your rider on delivery</p>
+                      </div>
                     )}
                   </div>
                   {!isCancelled && (

@@ -87,6 +87,9 @@ export default function Checkout() {
 
     setStep('paying');
 
+    // Generate a unique 4-digit pickup PIN
+    const pickupPin = String(Math.floor(1000 + Math.random() * 9000));
+
     // Step 2: Create order immediately (payment_status = pending)
     const { data: order, error: orderErr } = await supabase.from('orders').insert({
       customer_id: user!.id,
@@ -100,7 +103,8 @@ export default function Checkout() {
       payment_option: paymentOption,
       payment_status: 'pending',
       status: 'pending',
-    }).select('id').single();
+      pickup_pin: pickupPin,
+    }).select('id, pickup_pin').single();
 
     if (orderErr || !order) {
       setError('Failed to create order. Please try again.');
@@ -141,6 +145,15 @@ export default function Checkout() {
 
     if (paid) {
       localStorage.removeItem('cart');
+      // Send SMS confirmation to customer
+      try {
+        await sendSMS(
+          formattedPhone,
+          `Your Kisii Eats order has been placed! Order ID: ${order.id.slice(0, 8).toUpperCase()}. Track it in the app. Thank you!`
+        )
+      } catch {
+        // SMS failure should not block order confirmation
+      }
       setStep('done');
       setTimeout(() => navigate('/orders'), 3000);
     } else {

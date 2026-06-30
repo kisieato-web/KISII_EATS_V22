@@ -14,6 +14,15 @@ serve(async (req) => {
   }
 
   try {
+    // Require valid auth token
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const { action, payload } = await req.json()
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
