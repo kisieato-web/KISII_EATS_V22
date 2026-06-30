@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Mail, Lock, ArrowRight, Loader } from 'lucide-react';
 
@@ -9,17 +9,18 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
+  const navigate = useNavigate();
 
   const redirectByRole = (role: string) => {
-    console.log('redirectByRole called with:', role);
-    if (role === 'admin') {
-      window.location.href = '/admin/dashboard';
-    } else if (role === 'restaurant_admin') {
-      window.location.href = '/restaurant/dashboard';
-    } else if (role === 'rider') {
-      window.location.href = '/rider/dashboard';
+    const normalizedRole = role || 'customer';
+    if (normalizedRole === 'admin') {
+      navigate('/admin/dashboard', { replace: true });
+    } else if (normalizedRole === 'restaurant_admin') {
+      navigate('/restaurant/dashboard', { replace: true });
+    } else if (normalizedRole === 'rider') {
+      navigate('/rider/dashboard', { replace: true });
     } else {
-      window.location.href = '/dashboard';
+      navigate('/dashboard', { replace: true });
     }
   };
 
@@ -32,8 +33,6 @@ export default function Login() {
 
     try {
       const result = await signIn(email, password);
-      console.log('FULL SIGNIN RESULT:', JSON.stringify(result));
-
       const { error: signInError, role } = result;
 
       if (signInError) {
@@ -41,7 +40,6 @@ export default function Login() {
         return;
       }
 
-      console.log('ROLE VALUE:', role);
       redirectByRole(role || 'customer');
     } finally {
       setLoading(false);

@@ -2,16 +2,40 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { User } from '@supabase/supabase-js'
 
+function getFriendlyAuthErrorMessage(error: { message?: string } | null) {
+  if (!error) return null
+
+  const message = error.message?.toLowerCase() ?? ''
+
+  if (
+    message.includes('database error saving new user') ||
+    message.includes('user already registered') ||
+    message.includes('already registered') ||
+    message.includes('already exists') ||
+    message.includes('email already')
+  ) {
+    return 'An account with this email already exists. Please sign in instead.'
+  }
+
+  if (message.includes('password') && message.includes('least')) {
+    return 'Password must be at least 6 characters.'
+  }
+
+  return error.message
+}
+
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUserState] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+      setUserState(session?.user ?? null)
       setLoading(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      setUserState(s?.user ?? null)
+    })
     return () => subscription.unsubscribe()
   }, [])
 
@@ -21,7 +45,44 @@ export function useAuth() {
       password,
       options: { data: { full_name: name, phone, role } }
     })
-    return { error, user: data?.user || null }
+
+    const friendlyErrorMessage = getFriendlyAuthErrorMessage(error)
+    if (friendlyErrorMessage && error) {
+      return {
+        error: new Error(friendlyErrorMessage),
+        user: null,
+        role: null,
+        session: null
+      }
+    }
+
+    const authUser = data?.session?.user ?? data?.user ?? null
+    if (authUser && !error) {
+      const profilePayload = {
+        id: authUser.id,
+        email: authUser.email ?? email,
+        full_name: name,
+        phone,
+        role
+      }
+
+      const { error: profileError } = await supabase
+        .from('users')
+        .upsert(profilePayload, { onConflict: 'id' })
+
+      if (profileError) {
+        console.warn('Profile sync failed during signup:', profileError)
+      }
+
+      setUserState(authUser)
+    }
+
+    return {
+      error,
+      user: authUser,
+      role: (authUser?.user_metadata?.role as string | undefined) || role,
+      session: data?.session ?? null
+    }
   }
 
   const signUpAsRider = (email: string, password: string, name: string, phone: string) =>
@@ -56,7 +117,13 @@ export function useAuth() {
 
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error || !data.user) return { error, role: null }
+    if (error || !data.user) {
+      const friendlyErrorMessage = getFriendlyAuthErrorMessage(error)
+      setUserState(null)
+      return { error: friendlyErrorMessage ? new Error(friendlyErrorMessage) : error, role: null }
+    }
+
+    setUserState(data.user)
 
     // PRIMARY: Query users table — this is the most reliable source
     // Retry up to 5 times to handle trigger delays on new accounts
@@ -94,7 +161,10 @@ export function useAuth() {
     return getRolePath(metaRole || 'customer')
   }
 
-  const signOut = async () => await supabase.auth.signOut()
+  const signOut = async () => {
+    setUserState(null)
+    return supabase.auth.signOut()
+  }
 
   return { user, loading, signUp, signUpAsRider, signUpAsRestaurant, signIn, signOut, getDashboardPath }
 }

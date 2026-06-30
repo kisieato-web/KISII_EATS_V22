@@ -11,8 +11,21 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const { signUp, signIn } = useAuth();
   const navigate = useNavigate();
+
+  const redirectByRole = (role: string) => {
+    const normalizedRole = role || 'customer';
+    if (normalizedRole === 'admin') {
+      navigate('/admin/dashboard', { replace: true });
+    } else if (normalizedRole === 'restaurant_admin') {
+      navigate('/restaurant/dashboard', { replace: true });
+    } else if (normalizedRole === 'rider') {
+      navigate('/rider/dashboard', { replace: true });
+    } else {
+      navigate('/dashboard', { replace: true });
+    }
+  };
 
   const handleSignUp = async () => {
     setError('');
@@ -23,7 +36,7 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      const { error: err, user, role } = await signUp(email, password, name.trim(), phone);
+      const { error: err, user, role, session } = await signUp(email, password, name.trim(), phone);
 
       if (err) {
         setError(err.message);
@@ -35,21 +48,18 @@ export default function Signup() {
         return;
       }
 
-      const resolvedRole = role || 'customer';
+      if (!session) {
+        const signInResult = await signIn(email, password);
+        if (signInResult.error) {
+          setError('Account created. Please sign in with your email and password.');
+          return;
+        }
 
-      switch (resolvedRole) {
-        case 'admin':
-          navigate('/admin/dashboard');
-          break;
-        case 'restaurant_admin':
-          navigate('/restaurant/dashboard');
-          break;
-        case 'rider':
-          navigate('/rider/dashboard');
-          break;
-        default:
-          navigate('/dashboard');
+        redirectByRole(signInResult.role || role || 'customer');
+        return;
       }
+
+      redirectByRole(role || 'customer');
     } finally {
       setLoading(false);
     }
